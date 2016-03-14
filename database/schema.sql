@@ -43,12 +43,13 @@ DROP TABLE IF EXISTS `searches`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `searches` (
-  `search_id` int(4) NOT NULL,
+  `search_id` int(4) NOT NULL AUTO_INCREMENT,
   `search` varchar(226) NOT NULL,
+  `search_date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`search_id`),
   UNIQUE KEY `id_UNIQUE` (`search_id`),
   UNIQUE KEY `string_UNIQUE` (`search`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -60,5 +61,4 @@ CREATE TABLE `searches` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-03-14  9:59:10
-
+-- Dump completed on 2016-03-14 20:00:14
