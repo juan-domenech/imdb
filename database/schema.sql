@@ -23,15 +23,15 @@ DROP TABLE IF EXISTS `movies`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `movies` (
-  `movie_id` int(4) NOT NULL,
+  `movieID` int(4) NOT NULL,
   `title` varchar(226) NOT NULL,
   `year` year(4) NOT NULL,
   `kind` varchar(45) DEFAULT NULL,
-  `episode_of` varchar(226) DEFAULT NULL,
-  `series_year` year(4) DEFAULT NULL,
+  `episode of` varchar(226) DEFAULT NULL,
+  `series year` year(4) DEFAULT NULL,
   `search_id` int(4) DEFAULT NULL,
-  PRIMARY KEY (`movie_id`),
-  UNIQUE KEY `id_UNIQUE` (`movie_id`)
+  PRIMARY KEY (`movieID`),
+  UNIQUE KEY `id_UNIQUE` (`movieID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -46,10 +46,10 @@ CREATE TABLE `searches` (
   `search_id` int(4) NOT NULL AUTO_INCREMENT,
   `search` varchar(226) NOT NULL,
   `search_date` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`search_id`),
+  PRIMARY KEY (`search`),
   UNIQUE KEY `id_UNIQUE` (`search_id`),
   UNIQUE KEY `string_UNIQUE` (`search`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -61,4 +61,4 @@ CREATE TABLE `searches` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-03-14 20:00:14
+-- Dump completed on 2016-03-14 23:31:54
