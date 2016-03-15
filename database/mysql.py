@@ -1,10 +1,10 @@
-DEBUG = True
-
 import MySQLdb as _mysql
 import imdb
 
 # For the search&replace of bad characters
 import re
+
+DEBUG = 0
 
 ia = imdb.IMDb()
 
@@ -16,7 +16,7 @@ class MySQLDatabase:
                                      user=username,
                                      passwd=password)
             self.database_name=database_name
-            if DEBUG:
+            if DEBUG == 1:
                 print "Connected to MySQL!"
         except _mysql.Error, e:
             print e
@@ -25,7 +25,7 @@ class MySQLDatabase:
     def __del__( self ):
         if hasattr(self, 'db'): # close our connection to free it up in the pool
             self.db.close()
-            if DEBUG:
+            if DEBUG == 1:
                 print "MySQL Connection closed"
 
 
@@ -33,18 +33,18 @@ class MySQLDatabase:
     def check_search(self,search):
         # Compare the search string with all the previous stored searches and return the search_id
         sql = "SELECT search_id FROM searches WHERE search='"+search+"';"
-        if DEBUG:
+        if DEBUG == 1:
             print sql
         cursor = self.db.cursor()
         cursor.execute(sql)
         search_id = cursor.fetchone()
         if search_id:
-            if DEBUG:
+            if DEBUG == 1:
                 print search_id
             cursor.close()
             return search_id[0]
         else:
-            if DEBUG:
+            if DEBUG == 1:
                 print "Search not found in DB"
             cursor.close()
             return False
@@ -55,37 +55,39 @@ class MySQLDatabase:
         ia = imdb.IMDb()
         s_result = ia.search_movie( search )
         if s_result:
-            if DEBUG:
-                print s_result
+            if DEBUG == 1:
+                print "s_result:",s_result
+                for item in range(0,len(s_result)):
+                    print "item:",s_result[item].data
             return s_result
         else:
-            if DEBUG:
+            if DEBUG == 1:
                 print "No movies found!"
-            return False
+            return {}
 
 
     # Get from DB all the movies under the same search_id
     def get_movies_by_stored_search(self, search_id):
         movies_clean = []
         sql = "SELECT * FROM movies WHERE search_id='"+str(search_id)+"';"
-        if DEBUG:
+        if DEBUG == 1:
             print sql
         cursor = self.db.cursor()
         cursor.execute(sql)
         movies = cursor.fetchall()
         if len(movies):
-            if DEBUG:
+            if DEBUG == 1:
                 print "Return from DB"
                 for item in range(0,len(movies)):
                     print movies[item]
             for movie in movies:
                 movies_clean.append(self.movie_from_tuple_to_dictionary(movie))
-            if DEBUG:
+            if DEBUG == 1:
                 print "movies_clean:",movies_clean
             return movies_clean
 
         else:
-            if DEBUG:
+            if DEBUG == 1:
                 print "Something went wrong. No movies stored under this search_id:", search_id
             return False
 
@@ -112,7 +114,7 @@ class MySQLDatabase:
 
     def insert_search(self, search):
         sql = "INSERT INTO searches (search) VALUES ('"+str(search)+"');"
-        if DEBUG:
+        if DEBUG == 1:
             print sql
         cursor = self.db.cursor()
         cursor.execute(sql)
@@ -123,6 +125,35 @@ class MySQLDatabase:
         # Recover search_id from the last Insert
         return self.check_search(search)
 
+
+    # Create simplified object with only the properties we are interested on
+    def normalize_imdb_response(self, s_result):
+        movies = []
+        for item in s_result:
+            movie = {}
+            movie['movieID'] = int(item.movieID)
+            movie['year'] = 2999
+            if DEBUG == 1:
+                print "item.data:",item.data
+            for item_data in item.data:
+                # Add new property&value to the object that are present in .data object
+                movie[item_data] = item.data[item_data]
+                if DEBUG == 1:
+                    print "item_data:",item_data, "item.data[item_data]:",item.data[item_data]
+
+            # Deal with the akas field format issue: Store only the first one
+            if movie.has_key('akas'):
+                movie['akas'] = movie['akas'][0]
+
+            # Replace single quotes
+            movie['title'] = re.sub("'", "\\'", movie['title'] )
+            if movie.has_key('episode of'):
+                movie['episode of'] = re.sub("'", "\\'", movie['episode of'] )
+            if movie.has_key('akas'):
+                movie['akas'] = re.sub("'", "\\'", movie['akas'] )
+
+            movies.append(movie)
+        return movies
 
 
     # Insert movies into DB
@@ -135,20 +166,21 @@ class MySQLDatabase:
             sql_values = "VALUES ('"+str(search_id)+"',"
 
             for item in movie:
+                if DEBUG == 1:
+                    print "item:",item
 
                 sql += "`"+str(item)+"`,"
                 sql_values += "'"+str(movie[item])+"',"
+                #sql_values += "'"+movie[item]+"',"
 
             sql = sql[:-1]+") "+(sql_values[:-1])+");"
 
-            if DEBUG:
+            if DEBUG == 1:
                 print sql
             cursor = self.db.cursor()
             cursor.execute(sql)
         self.db.commit()
         return
-
-
 
     #
     # Main "search by string" function
@@ -160,93 +192,46 @@ class MySQLDatabase:
 
         # The movie search exits in DB -> get the list of associated movies + return them
         if search_id:
-            if DEBUG:
+            if DEBUG == 1:
                 print "Search",search,"found id DB with search_ID:",search_id
             movies = self.get_movies_by_stored_search(search_id)
             if movies:
-                if DEBUG:
+                if DEBUG == 1:
                     print movies
                 return movies
             else:
-                if DEBUG:
+                if DEBUG == 1:
                     print "Something went wrong. No movies from a present search_id:", search_id
-            return False
-
-
+            return []
         # The movie search doesn't exist in the DB -> Search IMDB + update DB + return them
         else:
-            if DEBUG:
+            if DEBUG == 1:
                 print "Search",search,"not found. Connecting to IMDB..."
 
             # Send search to IMDB
             s_result = self.get_movies_by_name(search)
 
-            #movies = [ item.data for item in s_result]
-
-            # Create simplified object
-            movies = []
-            for item in s_result:
-                movie = {}
-                movie['movieID'] = int(item.movieID)
-                #print movie
-                #result['movieID'] = item['movieID']
-                movie['year'] = 0
-                print "item.data:",item.data
-                for item_data in item.data:
-                    # Add new property&value to the object and replace single quotes on any field
-                    movie[item_data] = item.data[item_data]
-                    print "item_data:",item_data, "item.data[item_data]:",item.data[item_data]
-
-                # Deal with the akas field format issue: Store only the first one
-                if movie.has_key('akas'):
-                    movie['akas'] = movie['akas'][0]
-
-                # Replace single quotes
-                movie['title'] = re.sub("'", "\\'", movie['title'] )
-                if movie.has_key('episode of'):
-                    movie['episode of'] = re.sub("'", "\\'", movie['episode of'] )
-                if movie.has_key('akas'):
-                    movie['akas'] = re.sub("'", "\\'", movie['akas'] )
-
-                #movie['title'] = str(item.data['title'])
-                #print movie
-                #if item.data['year']:
-                #    movie['year'] = item.data['year']
-                #if item.data['kind']:
-                #    movie['kind'] = item.data['kind']
-
-
-                #if item.data['episode of']:
-                #    result['episode of'] = item.data['episode of']
-                #if item.data['series year']:
-                #    result['series year'] = item.data['series year']
-
-                movies.append(movie)
-
-
-            #return movies
+            # Normalize response from IMDB API
+            movies = self.normalize_imdb_response(s_result)
 
             # Store search string and get search_id
             search_id = self.insert_search(search)
             if search_id:
-                if DEBUG:
+                if DEBUG == 1:
                     print "New search_id: %i for Search: %s" % ( search_id, search)
             else:
-                if DEBUG:
+                if DEBUG == 1:
                     print "Something went wrong: No search_id returned after INSERT"
+                # Break&exit
                 return False
 
-
-            #return movies
-
-
-            # Insert Movies into DB
+            # Insert Movies into DB and commit
             self.insert_movies_into_db(search_id, movies)
 
-
-            if DEBUG:
+            if DEBUG == 1:
                 for item in movies:
                     print item
+
             return movies
 
 

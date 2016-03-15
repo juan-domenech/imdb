@@ -29,6 +29,7 @@ CREATE TABLE `movies` (
   `kind` varchar(45) DEFAULT NULL,
   `episode of` varchar(226) DEFAULT NULL,
   `series year` year(4) DEFAULT NULL,
+  `akas` varchar(226) DEFAULT NULL,
   `search_id` int(4) DEFAULT NULL,
   PRIMARY KEY (`movieID`),
   UNIQUE KEY `id_UNIQUE` (`movieID`)
@@ -49,7 +50,7 @@ CREATE TABLE `searches` (
   PRIMARY KEY (`search`),
   UNIQUE KEY `id_UNIQUE` (`search_id`),
   UNIQUE KEY `string_UNIQUE` (`search`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=192 DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -61,4 +62,4 @@ CREATE TABLE `searches` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2016-03-14 23:31:54
+-- Dump completed on 2016-03-15 19:04:13
