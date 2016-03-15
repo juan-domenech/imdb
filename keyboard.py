@@ -35,8 +35,8 @@ def key(event):
     if search != '' and search != "''" and search[:-1] != "'":
         movies = db.search(search)
         print
-        for movie in movies:
-            print movie
+        for movie in range(0,len(movies)):
+            print movies[movie]['title'], "("+str(movies[movie]['year'])+")", "-"+movies[movie]['kind']+"-"
     else:
         print "Search includes trash:"+search
 

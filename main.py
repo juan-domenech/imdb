@@ -3,9 +3,10 @@ from database.mysql import MySQLDatabase
 db = MySQLDatabase('imdb','imdb','imdb','localhost')
 
 
-movies = db.search('Leyla and Mecnun')
+movies = db.search('kill bill vol')
 
 print "Main:"
-for movie in movies:
+print len(movies)
+for movie in sorted(movies):
     print movie
 
