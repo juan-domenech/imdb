@@ -3,6 +3,9 @@ DEBUG = True
 import MySQLdb as _mysql
 import imdb
 
+# For the search&replace of bad characters
+import re
+
 ia = imdb.IMDb()
 
 class MySQLDatabase:
@@ -99,8 +102,10 @@ class MySQLDatabase:
             result['episode of'] = movie[4]
         if movie[5]:
             result['series year'] = movie[5]
+        if movie[6]:
+            result['akas'] = movie[6]
         # Not a IMDB field but we add it anyway
-        result['search id'] = int(str(movie[6]))
+        result['search id'] = int(str(movie[7]))
         return result
 
 
@@ -111,7 +116,10 @@ class MySQLDatabase:
             print sql
         cursor = self.db.cursor()
         cursor.execute(sql)
-        self.db.commit()
+
+        # Let's leave the commit for later
+        #self.db.commit()
+
         # Recover search_id from the last Insert
         return self.check_search(search)
 
@@ -122,13 +130,14 @@ class MySQLDatabase:
 
         for movie in movies:
 
-            sql = "INSERT INTO movies ("
-            sql_values = "VALUES ("
+            # Using IGNORE to avoid duplicates (To Improve)
+            sql = "INSERT IGNORE INTO movies (`search_id`,"
+            sql_values = "VALUES ('"+str(search_id)+"',"
 
             for item in movie:
 
                 sql += "`"+str(item)+"`,"
-                sql_values += "`"+str(movie[item])+"`,"
+                sql_values += "'"+str(movie[item])+"',"
 
             sql = sql[:-1]+") "+(sql_values[:-1])+");"
 
@@ -181,10 +190,23 @@ class MySQLDatabase:
                 movie['movieID'] = int(item.movieID)
                 #print movie
                 #result['movieID'] = item['movieID']
-                movie['year'] = 9999
+                movie['year'] = 0
+                print "item.data:",item.data
                 for item_data in item.data:
+                    # Add new property&value to the object and replace single quotes on any field
                     movie[item_data] = item.data[item_data]
-                    #print item_data, item.data[item_data]
+                    print "item_data:",item_data, "item.data[item_data]:",item.data[item_data]
+
+                # Deal with the akas field format issue: Store only the first one
+                if movie.has_key('akas'):
+                    movie['akas'] = movie['akas'][0]
+
+                # Replace single quotes
+                movie['title'] = re.sub("'", "\\'", movie['title'] )
+                if movie.has_key('episode of'):
+                    movie['episode of'] = re.sub("'", "\\'", movie['episode of'] )
+                if movie.has_key('akas'):
+                    movie['akas'] = re.sub("'", "\\'", movie['akas'] )
 
                 #movie['title'] = str(item.data['title'])
                 #print movie
