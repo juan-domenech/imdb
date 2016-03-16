@@ -4,7 +4,7 @@ import imdb
 # For the search&replace of bad characters
 import re
 
-DEBUG = 2
+DEBUG = 0
 
 ia = imdb.IMDb()
 
@@ -29,7 +29,7 @@ class MySQLDatabase:
                 print "MySQL Connection closed"
 
 
-    # Check whether this search string has already been used
+    # Check whether this search string is stored in DB
     def check_search(self,search):
         # Compare the search string with all the previous stored searches and return the search_id
         sql = "SELECT search_id FROM searches WHERE search='"+search+"';"
@@ -85,12 +85,24 @@ class MySQLDatabase:
             if DEBUG == 1:
                 print "movies_clean:",movies_clean
             return movies_clean
-
         else:
             if DEBUG == 1:
                 print "Something went wrong. No movies stored under this search_id:", search_id
+            # Delete invalid search ID as workaround
+            self.remove_invalid_search_id(search_id)
             return False
 
+    # Remove search_id that has no associated movies
+    def remove_invalid_search_id(self,search_id):
+        sql = "DELETE FROM searches WHERE search_id='"+str(search_id)+"';"
+        if DEBUG == 1:
+            print "Removing search_id:", search_id
+            print sql
+        cursor = self.db.cursor()
+        cursor.execute(sql)
+        #movies = cursor.fetchall()
+        self.db.commit()
+        return
 
     # Convert a tupple containing the movie information to an object following IMDB module format
     def movie_from_tuple_to_dictionary(self, movie):
@@ -111,7 +123,7 @@ class MySQLDatabase:
         return result
 
 
-
+    #
     def insert_search(self, search):
         sql = "INSERT INTO searches (search) VALUES ('"+str(search)+"');"
         if DEBUG == 1:
@@ -119,7 +131,7 @@ class MySQLDatabase:
         cursor = self.db.cursor()
         cursor.execute(sql)
 
-        # Let's leave the commit for later
+        # Let's do commit as a last step instead
         #self.db.commit()
 
         # Recover search_id from the last Insert
@@ -132,7 +144,7 @@ class MySQLDatabase:
         for item in s_result:
             movie = {}
             movie['movieID'] = int(item.movieID)
-            movie['year'] = 2999
+            movie['year'] = 2155
             if DEBUG == 1:
                 print "item.data:",item.data
             for item_data in item.data:
@@ -162,7 +174,9 @@ class MySQLDatabase:
         for movie in movies:
 
             # Using IGNORE to avoid duplicates (To Improve)
-            sql = "INSERT IGNORE INTO movies (`search_id`,"
+            #sql = "INSERT IGNORE INTO movies (`search_id`,"
+            # Let's try using REPLACE
+            sql = "REPLACE INTO movies (`search_id`,"
             sql_values = "VALUES ('"+str(search_id)+"',"
 
             for item in movie:
@@ -184,7 +198,7 @@ class MySQLDatabase:
 
 
     # Search for similar movies in DB using LIKE and add to the final list
-    def get_movies_by_like(self, search, movies):
+    def get_movies_by_like(self, search, movies = [] ):
         movies_clean = []
         sql = "SELECT * FROM movies WHERE title LIKE '%"+search+"%';"
         if DEBUG == 1:
@@ -194,7 +208,7 @@ class MySQLDatabase:
         movies_from_db = cursor.fetchall()
         if len(movies_from_db):
             if DEBUG == 1:
-                print "Return from DB"
+                print "Return from DB:", len(movies_from_db)
                 for item in range(0,len(movies_from_db)):
                     print movies_from_db[item]
             # Convert tuples to IMDB format
@@ -202,9 +216,12 @@ class MySQLDatabase:
                 movies_clean.append(self.movie_from_tuple_to_dictionary(movie))
 
             if DEBUG == 1:
-                print "What we have from search_id:",len(movies)
-                for movie in sorted(movies):
-                    print movie
+                if movies:
+                    print "What we have from search_id:",len(movies)
+                    for movie in sorted(movies):
+                        print movie
+                else:
+                    print "ERROR: No movies from search:",search
                 print "What we have from LIKE search:",len(movies_clean)
                 for movie in sorted(movies_clean):
                     print movie
@@ -230,7 +247,6 @@ class MySQLDatabase:
 
 
 
-
     #
     # Main "search by string" function
     #
@@ -242,28 +258,35 @@ class MySQLDatabase:
         # The movie search exits in DB -> get the list of associated movies + return them
         if search_id:
             if DEBUG == 1:
-                print "Search",search,"found id DB with search_ID:",search_id
+                print "Search '"+search+"' found id DB with search_ID:",search_id
             movies = self.get_movies_by_stored_search(search_id)
 
             # Search for similar movies in DB using LIKE and add to the final list
-            movies = self.get_movies_by_like(search,movies)
+            movies = self.get_movies_by_like(search)
 
             if movies:
                 if DEBUG == 1:
                     print sorted(movies)
                 return movies
             else:
-                if DEBUG == 1:
-                    print "Something went wrong. No movies from a present search_id:", search_id
-            return []
+                if DEBUG == 0 or DEBUG == 1:
+                    print "ERROR: Something went wrong. No movies from a present search_id:", search_id
+                # Exit with empty due error
+                return []
 
-        # The movie search doesn't exist in the DB -> Search IMDB + update DB + return them
+        # The movie search doesn't exist in the DB -> Search IMDB + update DB + search by LIKE in DB + return them
         else:
             if DEBUG == 1:
-                print "Search",search,"not found. Connecting to IMDB..."
+                print "Search '"+search+"' not found. Connecting to IMDB..."
 
             # Send search to IMDB
             s_result = self.get_movies_by_name(search)
+
+            # No results -> break
+            if len(s_result) == 0:
+                if DEBUG == 0 or DEBUG == 1:
+                    print "No movies found in IMDB, weird..."
+                return []
 
             # Normalize response from IMDB API
             movies = self.normalize_imdb_response(s_result)
@@ -274,13 +297,18 @@ class MySQLDatabase:
                 if DEBUG == 1:
                     print "New search_id: %i for Search: %s" % ( search_id, search)
             else:
-                if DEBUG == 1:
-                    print "Something went wrong: No search_id returned after INSERT"
-                # Break&exit
-                return False
+                if DEBUG == 0 or DEBUG == 1:
+                    print "ERROR: Something went wrong: No search_id returned after INSERT"
+                # Exit with empty due error
+                return []
 
             # Insert Movies into DB and commit
             self.insert_movies_into_db(search_id, movies)
+
+            if len(movies) == 0:
+                if DEBUG == 0 or DEBUG == 1:
+                    print "ERROR: movies len == 0 weird..."
+                return []
 
             # Search for similar movies in DB using LIKE and add to the final list
             movies = self.get_movies_by_like(search,movies)
