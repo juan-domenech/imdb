@@ -5,15 +5,16 @@ db = MySQLDatabase('imdb','imdb','imdb','localhost')
 
 DEBUG = 0
 
-movies = db.search('kill bill ')
+movies = db.search('test')
 
 print "Main:"
 print len(movies)
 for movie in sorted(movies):
     print movie
 
-movies_new = basic_ranking(movies)
-print
-print "From ranking:",len(movies_new)
-for movie in movies_new:
-    print movie
+
+#movies_new = basic_ranking(movies)
+#print
+#print "From ranking:",len(movies_new)
+#for movie in movies_new:
+#    print movie

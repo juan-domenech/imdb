@@ -89,8 +89,9 @@ class MySQLDatabase:
             if DEBUG == 1:
                 print "Something went wrong. No movies stored under this search_id:", search_id
             # Delete invalid search ID as workaround
-            self.remove_invalid_search_id(search_id)
+            #self.remove_invalid_search_id(search_id)
             return False
+
 
     # Remove search_id that has no associated movies
     def remove_invalid_search_id(self,search_id):
@@ -103,6 +104,7 @@ class MySQLDatabase:
         #movies = cursor.fetchall()
         self.db.commit()
         return
+
 
     # Convert a tupple containing the movie information to an object following IMDB module format
     def movie_from_tuple_to_dictionary(self, movie):
@@ -198,7 +200,7 @@ class MySQLDatabase:
 
 
     # Search for similar movies in DB using LIKE and add to the final list
-    def get_movies_by_like(self, search, movies = [] ):
+    def get_movies_by_like(self, search, movies ):
         movies_clean = []
         sql = "SELECT * FROM movies WHERE title LIKE '%"+search+"%';"
         if DEBUG == 1:
@@ -261,8 +263,17 @@ class MySQLDatabase:
                 print "Search '"+search+"' found id DB with search_ID:",search_id
             movies = self.get_movies_by_stored_search(search_id)
 
-            # Search for similar movies in DB using LIKE and add to the final list
-            movies = self.get_movies_by_like(search)
+            print "Cache Hit:",search_id
+
+            # Exception: search_id present but with no movies -> delete orphan search_id + let's see what we can get with the LIKE
+            if not movies:
+                # Delete invalid search_id as workaround
+                print "EXCEPTION: Found orphan search_id:",search_id
+                self.remove_invalid_search_id(search_id)
+                movies = []
+
+            # Search for similar movies in DB using LIKE and add them to the final list
+            movies = self.get_movies_by_like(search, movies)
 
             if movies:
                 if DEBUG == 1:
@@ -276,6 +287,9 @@ class MySQLDatabase:
 
         # The movie search doesn't exist in the DB -> Search IMDB + update DB + search by LIKE in DB + return them
         else:
+
+            print "Cache Miss:",search
+
             if DEBUG == 1:
                 print "Search '"+search+"' not found. Connecting to IMDB..."
 

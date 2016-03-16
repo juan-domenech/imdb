@@ -50,6 +50,7 @@ def key(event):
             red_light = False
             movies = basic_ranking(movies)
             if len(movies):
+                #print "\b" * 21,
                 for movie in range(0,len(movies)):
                     print movies[movie]['title'], "("+str(movies[movie]['year'])+")"
             else:
