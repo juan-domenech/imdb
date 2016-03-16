@@ -14,7 +14,9 @@ class MySQLDatabase:
             self.db = _mysql.connect(db=database_name,
                                      host=host,
                                      user=username,
-                                     passwd=password)
+                                     passwd=password,
+                                     use_unicode=True,
+                                     charset="utf8")
             self.database_name=database_name
             if DEBUG == 1:
                 print "Connected to MySQL!"
@@ -40,7 +42,7 @@ class MySQLDatabase:
         search_id = cursor.fetchone()
         if search_id:
             if DEBUG == 1:
-                print search_id
+                print "Found search_id:",search_id
             cursor.close()
             return search_id[0]
         else:
@@ -48,6 +50,7 @@ class MySQLDatabase:
                 print "Search not found in DB"
             cursor.close()
             return False
+
 
 
     # Free test search in IMDB when the search is not present in the DB
@@ -69,7 +72,8 @@ class MySQLDatabase:
     # Get from DB all the movies under the same search_id
     def get_movies_by_stored_search(self, search_id):
         movies_clean = []
-        sql = "SELECT * FROM movies WHERE search_id='"+str(search_id)+"';"
+        #sql = "SELECT * FROM movies WHERE search_id='"+str(search_id)+"';"
+        sql = "SELECT * FROM movies INNER JOIN movies_searches on movies.movieID = movies_searches.movieID and movies_searches.search_id = '"+str(search_id)+"';"
         if DEBUG == 1:
             print sql
         cursor = self.db.cursor()
@@ -89,7 +93,7 @@ class MySQLDatabase:
             if DEBUG == 1:
                 print "Something went wrong. No movies stored under this search_id:", search_id
             # Delete invalid search ID as workaround
-            #self.remove_invalid_search_id(search_id)
+            self.remove_invalid_search_id(search_id)
             return False
 
 
@@ -97,11 +101,19 @@ class MySQLDatabase:
     def remove_invalid_search_id(self,search_id):
         sql = "DELETE FROM searches WHERE search_id='"+str(search_id)+"';"
         if DEBUG == 1:
-            print "Removing search_id:", search_id
+            print "Removing search_id from searches:", search_id
             print sql
         cursor = self.db.cursor()
         cursor.execute(sql)
-        #movies = cursor.fetchall()
+        #self.db.commit()
+
+        sql = "DELETE FROM movies_searches WHERE search_id='"+str(search_id)+"';"
+        if DEBUG == 1:
+            print "Removing search_id from movies_searches:", search_id
+            print sql
+        cursor = self.db.cursor()
+        cursor.execute(sql)
+
         self.db.commit()
         return
 
@@ -112,6 +124,7 @@ class MySQLDatabase:
         result['movieID'] = int(str(movie[0]))
         result['title'] = movie[1]
         result['year'] = movie[2]
+        result['time_stamp'] = str(movie[7])
         if movie[3]:
             result['kind'] = movie[3]
         if movie[4]:
@@ -120,8 +133,6 @@ class MySQLDatabase:
             result['series year'] = movie[5]
         if movie[6]:
             result['akas'] = movie[6]
-        # Not a IMDB field but we add it anyway
-        result['search id'] = int(str(movie[7]))
         return result
 
 
@@ -136,7 +147,7 @@ class MySQLDatabase:
         # Let's do commit as a last step instead
         #self.db.commit()
 
-        # Recover search_id from the last Insert
+        # Recover search_id that the autoincrement has created for us from the last Insert
         return self.check_search(search)
 
 
@@ -173,20 +184,29 @@ class MySQLDatabase:
     # Insert movies into DB
     def insert_movies_into_db(self, search_id, movies):
 
+        if len(movies) == 0:
+            print "ERROR: Something went terribly wrong. No movies present at insert_movies_into_db()"
+            return False
+
         for movie in movies:
 
             # Using IGNORE to avoid duplicates (To Improve)
-            #sql = "INSERT IGNORE INTO movies (`search_id`,"
+            sql = "INSERT IGNORE INTO movies ("
             # Let's try using REPLACE
-            sql = "REPLACE INTO movies (`search_id`,"
-            sql_values = "VALUES ('"+str(search_id)+"',"
+            #sql = "REPLACE INTO movies ("
+            sql_values = "VALUES ("
 
             for item in movie:
                 if DEBUG == 1:
                     print "item:",item
 
                 sql += "`"+str(item)+"`,"
-                sql_values += "'"+str(movie[item])+"',"
+
+                # Is the item and integer?
+                if isinstance( movie[item], int):
+                    sql_values += "'"+str(movie[item])+"',"
+                else:
+                    sql_values += "'"+movie[item]+"',"
                 #sql_values += "'"+movie[item]+"',"
 
             sql = sql[:-1]+") "+(sql_values[:-1])+");"
@@ -195,13 +215,27 @@ class MySQLDatabase:
                 print sql
             cursor = self.db.cursor()
             cursor.execute(sql)
+
+            # Update Join Table
+            sql = "INSERT INTO movies_searches (movieID, search_id) VALUES ('"+str( movie['movieID'] )+"','"+str(search_id)+"');"
+            if DEBUG == 1:
+                print sql
+            cursor = self.db.cursor()
+            cursor.execute(sql)
+
         self.db.commit()
-        return
+
+        return True
 
 
     # Search for similar movies in DB using LIKE and add to the final list
     def get_movies_by_like(self, search, movies ):
+
+        if not movies:
+            movies = []
+
         movies_clean = []
+
         sql = "SELECT * FROM movies WHERE title LIKE '%"+search+"%';"
         if DEBUG == 1:
             print sql
@@ -259,18 +293,17 @@ class MySQLDatabase:
 
         # The movie search exits in DB -> get the list of associated movies + return them
         if search_id:
+
+            print "Cache Hit: #"+str(search_id)
+
             if DEBUG == 1:
-                print "Search '"+search+"' found id DB with search_ID:",search_id
+                print "Search '"+search+"' found in DB with search_id:",search_id
+
             movies = self.get_movies_by_stored_search(search_id)
 
-            print "Cache Hit:",search_id
-
-            # Exception: search_id present but with no movies -> delete orphan search_id + let's see what we can get with the LIKE
+            # We got and orphan search_id. get_movies_by_stored_search() will take care of it and delete it. Let's hope that get_movies_by_like() has something to offer
             if not movies:
-                # Delete invalid search_id as workaround
-                print "EXCEPTION: Found orphan search_id:",search_id
-                self.remove_invalid_search_id(search_id)
-                movies = []
+                print "EXCEPTION: Orphan search_id:",search_id
 
             # Search for similar movies in DB using LIKE and add them to the final list
             movies = self.get_movies_by_like(search, movies)
@@ -288,7 +321,7 @@ class MySQLDatabase:
         # The movie search doesn't exist in the DB -> Search IMDB + update DB + search by LIKE in DB + return them
         else:
 
-            print "Cache Miss:",search
+            print "Cache Miss: '"+search+"'"
 
             if DEBUG == 1:
                 print "Search '"+search+"' not found. Connecting to IMDB..."
@@ -305,7 +338,7 @@ class MySQLDatabase:
             # Normalize response from IMDB API
             movies = self.normalize_imdb_response(s_result)
 
-            # Store search string and get search_id
+            # Store search string and get search_id that it belongs to
             search_id = self.insert_search(search)
             if search_id:
                 if DEBUG == 1:
@@ -316,21 +349,24 @@ class MySQLDatabase:
                 # Exit with empty due error
                 return []
 
-            # Insert Movies into DB and commit
-            self.insert_movies_into_db(search_id, movies)
-
-            if len(movies) == 0:
-                if DEBUG == 0 or DEBUG == 1:
-                    print "ERROR: movies len == 0 weird..."
+            # Insert Movies into DB and commit and check the exit status
+            if self.insert_movies_into_db(search_id, movies):
+                #self.db.commit()
+                if DEBUG == 1:
+                    for item in movies:
+                        print item
+                return movies
+            else:
                 return []
 
+            #if len(movies) == 0:
+            #    if DEBUG == 0 or DEBUG == 1:
+            #        print "ERROR: movies len == 0 weird..."
+            #    return []
+
             # Search for similar movies in DB using LIKE and add to the final list
-            movies = self.get_movies_by_like(search,movies)
+            #movies = self.get_movies_by_like(search,movies)
 
-            if DEBUG == 1:
-                for item in movies:
-                    print item
 
-            return movies
 
 

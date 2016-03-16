@@ -7,10 +7,10 @@ def basic_ranking(movies):
         if movie['kind'] == 'movie' or movie['kind'] == 'tv series':
             movies_new.append(movie)
 
-    # Discard year = 0 or 2999 (Movie in development)
+    # Discard year = 0 or 2155 (Movie in development)
     movies_temp = []
     for movie in movies_new:
-        if movie['year'] != 0 and movie['year'] != 2999:
+        if movie['year'] != 0 and movie['year'] != 2155:
             movies_temp.append(movie)
 
     # Field reorder

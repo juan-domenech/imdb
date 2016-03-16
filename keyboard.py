@@ -39,24 +39,23 @@ def key(event):
     # Add to the string
     else:
         search = search + key[1]
-    print "Search: *"+search+"*",red_light
+    print "Search: "+search+unichr(888)
 
     if search != '' and search != "''" and search[:-1] != "'" :
         # It looks OK. Let's search...
         if red_light == False :
             red_light = True
-            print "Connecting to IMDB..."
+            print
             movies = db.search(search)
             red_light = False
             movies = basic_ranking(movies)
             if len(movies):
-                #print "\b" * 21,
                 for movie in range(0,len(movies)):
                     print movies[movie]['title'], "("+str(movies[movie]['year'])+")"
             else:
                 print "No matches..."
-    else:
-        print "Search includes trash:",search
+    #else:
+    #    print "Search includes trash:",search
 
 def callback(event):
     frame.focus_set()
