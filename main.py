@@ -5,7 +5,7 @@ db = MySQLDatabase('imdb','imdb','imdb','localhost')
 
 DEBUG = 0
 
-movies = db.search('gon')
+movies = db.search('kill bill')
 
 print "Main:"
 print len(movies)

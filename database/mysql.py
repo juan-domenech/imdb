@@ -1,4 +1,6 @@
 import MySQLdb as _mysql
+
+# http://imdbpy.sourceforge.net/support.html#documentation
 import imdb
 
 # For the search&replace of bad characters
@@ -358,15 +360,4 @@ class MySQLDatabase:
                 return movies
             else:
                 return []
-
-            #if len(movies) == 0:
-            #    if DEBUG == 0 or DEBUG == 1:
-            #        print "ERROR: movies len == 0 weird..."
-            #    return []
-
-            # Search for similar movies in DB using LIKE and add to the final list
-            #movies = self.get_movies_by_like(search,movies)
-
-
-
 
